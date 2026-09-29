@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: digiteen-wallet-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://127.0.0.1:5433/digiteen_wallets}
+    username: ${DB_USERNAME:digiteen}
+    password: ${DB_PASSWORD:digiteen_dev_password}
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 4
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  rabbitmq:
+    host: ${RABBIT_HOST:127.0.0.1}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USERNAME:digiteen}
+    password: ${RABBIT_PASSWORD:digiteen_dev_password}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: auto
+        default-requeue-rejected: true
+
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+
+app:
+  role: ${APP_ROLE:api}
+  security:
+    issuer: ${JWT_ISSUER:https://identity.digiteen.local}
+    audience: ${JWT_AUDIENCE:digiteen-wallet-service}
+    jwk-set-uri: ${JWT_JWK_SET_URI:http://127.0.0.1:8080/.well-known/jwks.json}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  structured:
+    format:
+      console: logstash
+  level:
+    root: INFO
+    com.digiteen.walletservice: INFO
