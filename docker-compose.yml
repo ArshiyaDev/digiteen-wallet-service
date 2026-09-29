@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-digiteen_wallets}
+      POSTGRES_USER: ${POSTGRES_USER:-digiteen}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-digiteen_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - wallet_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-digiteen}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-digiteen_dev_password}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - wallet_rabbit_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  wallet-service:
+    image: digiteen-wallet-service:local
+    build:
+      context: .
+    environment: &wallet-environment
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-digiteen_wallets}
+      DB_USERNAME: ${POSTGRES_USER:-digiteen}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-digiteen_dev_password}
+      RABBIT_HOST: rabbitmq
+      RABBIT_USERNAME: ${RABBITMQ_USER:-digiteen}
+      RABBIT_PASSWORD: ${RABBITMQ_PASSWORD:-digiteen_dev_password}
+      JWT_ISSUER: ${JWT_ISSUER:-https://identity.digiteen.local}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-digiteen-wallet-service}
+      JWT_JWK_SET_URI: ${JWT_JWK_SET_URI:-http://host.docker.internal:8080/.well-known/jwks.json}
+      APP_ROLE: api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${WALLET_SERVICE_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  event-consumer:
+    image: digiteen-wallet-service:local
+    build:
+      context: .
+    environment:
+      <<: *wallet-environment
+      APP_ROLE: consumer
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      wallet-service:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  wallet_postgres_data:
+  wallet_rabbit_data:
