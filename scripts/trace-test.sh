@@ -46,4 +46,18 @@ if ! grep -q 'wallet_transaction_completed' <<<"${matches}" || \
   echo 'FAIL: trace did not cover transaction, publication, and consumption' >&2
   exit 1
 fi
+latencies="$(docker compose -f "${REPO_DIR}/docker-compose.yml" exec -T postgres \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -AtF " " -c "$1"' sh \
+  "SELECT ceil(extract(epoch FROM (o.published_at - o.occurred_at)) * 1000),
+          ceil(extract(epoch FROM (c.consumed_at - o.occurred_at)) * 1000)
+   FROM outbox_events o
+   JOIN consumed_events c ON c.event_id = o.id
+   WHERE o.trace_id='${run_id}'")"
+read -r publish_ms consume_ms <<<"${latencies}"
+printf '  publish latency: %s ms\n  consumer availability: %s ms\n' "${publish_ms}" "${consume_ms}"
+if [[ ! "${publish_ms:-}" =~ ^[0-9]+$ || ! "${consume_ms:-}" =~ ^[0-9]+$ ]] ||
+   (( publish_ms > 2000 || consume_ms > 2000 )); then
+  echo 'FAIL: event was not available to the consumer within two seconds' >&2
+  exit 1
+fi
 echo 'PASS'

@@ -1,56 +1,36 @@
 # Digiteen Wallet Service
 
-## Run with Docker
-
-Start `digiteen-user-service` first, then run here:
-
-```bash
-docker compose up -d --build
-```
-
-Check:
+Requires Docker Compose. **User Service must start first** for authentication.
+Keep both repositories in the same parent folder. From this wallet repository,
+start both services and their dependencies with one command:
 
 ```bash
-docker compose ps
-curl http://localhost:8081/actuator/health
+docker compose -f ../digiteen-user-service/docker-compose.yml up -d --build --wait && docker compose up -d --build --wait
 ```
 
-Swagger:
+User Swagger: http://localhost:8080/swagger-ui.html
 
-```text
-http://localhost:8081/swagger-ui.html
-```
+Wallet Swagger: http://localhost:8081/swagger-ui.html
 
-Register/login through User Service Swagger at
-`http://localhost:8080/swagger-ui.html`. Copy `accessToken`, click **Authorize** in
-Wallet Swagger, and paste the token.
+Register/login in User Swagger, copy `accessToken`, then paste it into Wallet Swagger → **Authorize**.
+Unit tests run during the builds.
 
-## Test
+Run evidence tests:
 
 ```bash
+./scripts/acceptance-test.sh
+./scripts/rollback-test.sh
 ./scripts/concurrency-test.sh
 ./scripts/idempotency-test.sh
 ./scripts/event-recovery-test.sh
 ./scripts/trace-test.sh
 ```
 
-Expected concurrency result:
+Concurrency: **33 succeed, 17 rejected, balance 1,000**.
+Trace test checks event consumption within **2 seconds**. See [evidence](EVIDENCE.md).
 
-```text
-33 successful
-17 insufficient funds
-1000 final balance
-```
-
-## Stop
+Stop both (keeps data):
 
 ```bash
-docker compose down
-```
-
-Delete all Wallet Service data and start clean:
-
-```bash
-docker compose down --volumes
-docker compose up -d --build
+docker compose down && docker compose -f ../digiteen-user-service/docker-compose.yml down
 ```

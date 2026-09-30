@@ -32,7 +32,7 @@ consumer_started=true
 count=0
 for _ in $(seq 1 30); do
   count="$(docker compose -f "${REPO_DIR}/docker-compose.yml" exec -T postgres \
-    psql -U digiteen -d digiteen_wallets -tAc \
+    sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$1"' sh \
     "SELECT count(*) FROM consumed_events WHERE trace_id='${run_id}'")"
   [[ "${count}" == 3 ]] && break
   sleep 1
