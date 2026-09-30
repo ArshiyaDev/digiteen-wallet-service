@@ -66,4 +66,39 @@ if [[ "${transport_failed}" != 0 || "${unexpected}" != 0 ||
   echo 'FAIL: expected exactly 33 successful, 17 rejected, and balance 1000' >&2
   exit 1
 fi
+
+# Read persisted transactions through the history API, independently of POST responses.
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer ${token}" \
+  "${WALLET_URL}/api/v1/wallet/transactions?size=100" >"${work_dir}/history.json"
+python3 - "${work_dir}/history.json" "${balance}" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as history_file:
+    history = json.load(history_file)
+rows = history["content"]
+balance = int(sys.argv[2])
+deposits = [r for r in rows if r["type"] == "DEPOSIT" and r["status"] == "SUCCEEDED"]
+withdrawals = [r for r in rows if r["type"] == "WITHDRAWAL" and r["status"] == "SUCCEEDED"]
+rejected = [r for r in rows if r["type"] == "WITHDRAWAL" and r["status"] == "REJECTED"]
+deposited = sum(r["amount"] for r in deposits)
+withdrawn = sum(r["amount"] for r in withdrawals)
+print(f"  persisted transactions: {len(rows)}")
+print(f"  persisted successful withdrawals: {len(withdrawals)}, total: {withdrawn}")
+print(f"  persisted insufficient-funds rejections: {len(rejected)}")
+print(f"  ledger reconciliation: {deposited} - {withdrawn} = {balance}")
+valid = (
+    history["totalElements"] == len(rows) == 51
+    and len({r["transactionId"] for r in rows}) == 51
+    and len(deposits) == 1 and deposited == 100000
+    and len(withdrawals) == 33 and withdrawn == 99000
+    and len(rejected) == 17
+    and all(r["amount"] == 3000 for r in withdrawals + rejected)
+    and all(r["failureCode"] == "INSUFFICIENT_FUNDS" for r in rejected)
+    and deposited - withdrawn == balance == 1000
+)
+if not valid:
+    sys.exit("FAIL: persisted transaction totals/counts do not match the expected balance change")
+PY
 echo 'PASS'

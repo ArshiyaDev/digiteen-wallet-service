@@ -4,11 +4,13 @@ Requires Docker Compose. **User Service must start first** for authentication.
 Keep both repositories in the same parent folder. From this wallet repository,
 start both services and their dependencies with one command:
 
+To start  Wallet Service and its PostgreSQL, RabbitMQ and consumer:
+
 ```bash
-docker compose -f ../digiteen-user-service/docker-compose.yml up -d --build --wait && docker compose up -d --build --wait
+docker compose up -d --build --wait
 ```
 
-User Swagger: http://localhost:8080/swagger-ui.html
+User Service must be available for login and authenticated API tests.
 
 Wallet Swagger: http://localhost:8081/swagger-ui.html
 
@@ -26,7 +28,7 @@ Run evidence tests:
 ./scripts/trace-test.sh
 ```
 
-Concurrency: **33 succeed, 17 rejected, balance 1,000**.
+Concurrency: **33 succeed, 17 rejected, balance 1,000**; verifies persisted withdrawals total **99,000**.
 Trace test checks event consumption within **2 seconds**. See [evidence](EVIDENCE.md).
 
 Stop both (keeps data):
