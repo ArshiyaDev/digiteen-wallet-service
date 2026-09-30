@@ -34,5 +34,5 @@ Trace test checks event consumption within **2 seconds**. See [evidence](EVIDENC
 Stop both (keeps data):
 
 ```bash
-docker compose down && docker compose -f ../digiteen-user-service/docker-compose.yml down
+docker compose down
 ```
